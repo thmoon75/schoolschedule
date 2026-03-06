@@ -8,7 +8,7 @@
 
 const DAYS = ['월', '화', '수', '목', '금'];
 
-const DEFAULT_PERIODS = ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '7교시', '8교시'];
+const DEFAULT_PERIODS = ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '7교시'];
 
 const PASTEL_COLORS = [
   { hex: '#FFB3BA', name: '연분홍' },
