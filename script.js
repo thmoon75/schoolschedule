@@ -30,7 +30,7 @@ const PASTEL_COLORS = [
 
 // 기본 과목 11개 → 색상 인덱스 매핑
 const DEFAULT_SUBJECTS_DATA = [
-  { name: '상태와 환경', colorIdx: 0  },
+  { name: '생태와 환경', colorIdx: 0  },
   { name: '대수',        colorIdx: 4  },
   { name: '창체',        colorIdx: 3  },
   { name: '중국어',      colorIdx: 2  },
