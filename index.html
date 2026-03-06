@@ -16,7 +16,6 @@
         <h1 class="site-title">&#127800; 문서율 시간표</h1>
         <p class="site-subtitle">나만의 시간표를 예쁘게 꾸며봐요 ✨</p>
       </div>
-      <!-- 주요 액션 버튼 (인쇄 시 숨김) -->
       <div class="header-actions no-print">
         <button class="btn btn-primary" onclick="saveSnapshot()">💾 저장하기</button>
         <button class="btn btn-secondary" onclick="openLoadModal()">📂 불러오기</button>
@@ -25,23 +24,21 @@
     </div>
   </header>
 
-  <!-- ===== 토스트 알림 (저장/불러오기 성공·실패 메시지) ===== -->
+  <!-- 토스트 알림 -->
   <div id="toast" class="toast" role="alert" aria-live="polite"></div>
 
-  <!-- ===== 메인 컨텐츠 ===== -->
+  <!-- ===== 메인 ===== -->
   <main class="container">
 
-    <!-- ─── 시간표 영역 ─── -->
+    <!-- 시간표 섹션 -->
     <section class="card timetable-card" id="timetableSection">
       <div class="card-header">
         <h2 class="card-title">📋 내 시간표</h2>
-        <!-- 수업이 없을 때 안내 문구 -->
-        <span class="empty-hint" id="emptyHint">
-          아직 수업이 없어요. 아래에서 수업을 추가해봐요! 🎒
-        </span>
+        <span class="empty-hint" id="emptyHint">셀의 + 버튼을 눌러 수업을 추가해봐요! 🎒</span>
       </div>
-      <!-- 모바일에서 테이블이 가로 스크롤되도록 감싸는 div -->
-      <div class="timetable-wrapper">
+
+      <!-- 데스크탑: 표 형식 (모바일에서 숨김) -->
+      <div class="desktop-view timetable-inner-wrap" id="desktopTimetable">
         <table class="timetable" id="timetableTable">
           <thead>
             <tr>
@@ -53,28 +50,77 @@
               <th class="day-header">금요일</th>
             </tr>
           </thead>
-          <!-- 행은 script.js에서 동적으로 생성 -->
           <tbody id="timetableBody"></tbody>
         </table>
+        <!-- 데스크탑용 다른 교시 추가 버튼 -->
+        <div class="custom-add-row no-print">
+          <button class="btn btn-outline btn-small" onclick="openAddModalFull()">
+            ✍️ 다른 교시에 추가하기
+          </button>
+        </div>
+      </div>
+
+      <!-- 모바일: 탭 형식 (데스크탑에서 숨김) -->
+      <div class="mobile-view" id="mobileTimetable">
+        <!-- 요일 탭 -->
+        <div class="day-tabs" id="dayTabs">
+          <button class="day-tab active" onclick="selectDayTab('월')" data-day="월">월</button>
+          <button class="day-tab" onclick="selectDayTab('화')" data-day="화">화</button>
+          <button class="day-tab" onclick="selectDayTab('수')" data-day="수">수</button>
+          <button class="day-tab" onclick="selectDayTab('목')" data-day="목">목</button>
+          <button class="day-tab" onclick="selectDayTab('금')" data-day="금">금</button>
+        </div>
+        <!-- 선택된 요일의 교시 목록 -->
+        <div id="mobileDayContent" class="mobile-day-content"></div>
+        <!-- 다른 교시 추가 버튼 -->
+        <div class="mobile-custom-add no-print">
+          <button class="btn btn-outline btn-small" onclick="openAddModalFull()">
+            ✍️ 다른 교시에 추가하기
+          </button>
+        </div>
       </div>
     </section>
 
-    <!-- ─── 편집 영역 (추가 폼 + 과목 관리) ─── -->
-    <div class="edit-grid no-print">
+    <!-- 과목 관리 섹션 -->
+    <section class="card subjects-card no-print">
+      <div class="card-header">
+        <h2 class="card-title">📚 과목 목록</h2>
+      </div>
+      <p class="subjects-hint">✕ 버튼으로 과목을 드롭다운에서 일시적으로 숨길 수 있어요</p>
+      <div id="subjectList" class="subject-list"></div>
+      <div class="add-subject-row">
+        <input type="text" id="newSubjectInput"
+          placeholder="새 과목명 입력 후 추가"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addSubject();}" />
+        <button class="btn btn-small btn-primary" onclick="addSubject()">+ 추가</button>
+      </div>
+    </section>
 
-      <!-- 수업 추가 / 수정 폼 -->
-      <section class="card form-card">
-        <div class="card-header">
-          <h2 class="card-title" id="formTitle">✏️ 수업 추가하기</h2>
+  </main>
+
+
+  <!-- ===== 수업 추가 / 수정 모달 ===== -->
+  <div id="addEditModal" class="modal-overlay" style="display:none;"
+       onclick="closeAddEditModalOutside(event)" role="dialog" aria-modal="true">
+    <div class="modal modal-form">
+
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="addEditModalTitle">수업 추가하기</h3>
+          <!-- 추가 모드: "월요일 · 1교시" 같은 컨텍스트 표시 -->
+          <p class="modal-context-text" id="addEditContext"></p>
         </div>
+        <button class="modal-close" onclick="closeAddEditModal()" aria-label="닫기">✕</button>
+      </div>
 
-        <form id="itemForm" onsubmit="handleFormSubmit(event)" autocomplete="off">
+      <div class="modal-body">
 
-          <!-- 요일 + 교시 선택 -->
+        <!-- 요일·교시 선택 (수정 모드 또는 직접입력 모드에서만 표시) -->
+        <div id="modalDayPeriodFields" style="display:none;">
           <div class="form-row">
             <div class="form-group">
-              <label for="inputDay">요일</label>
-              <select id="inputDay" required>
+              <label for="modalDay">요일</label>
+              <select id="modalDay">
                 <option value="월">월요일</option>
                 <option value="화">화요일</option>
                 <option value="수">수요일</option>
@@ -83,8 +129,8 @@
               </select>
             </div>
             <div class="form-group">
-              <label for="inputPeriod">교시</label>
-              <select id="inputPeriod" onchange="handlePeriodChange()" required>
+              <label for="modalPeriod">교시</label>
+              <select id="modalPeriod" onchange="handleModalPeriodChange()">
                 <option value="1교시">1교시</option>
                 <option value="2교시">2교시</option>
                 <option value="3교시">3교시</option>
@@ -97,98 +143,54 @@
               </select>
             </div>
           </div>
-
-          <!-- 교시 직접 입력 (숨겨져 있다가 '직접 입력' 선택 시 표시) -->
-          <div class="form-group" id="customPeriodGroup" style="display:none;">
-            <label for="inputCustomPeriod">직접 입력 (예: 0교시, 야자1)</label>
-            <input type="text" id="inputCustomPeriod" placeholder="교시 또는 시간을 직접 입력해주세요" />
+          <div class="form-group" id="modalCustomPeriodGroup" style="display:none;">
+            <label for="modalCustomPeriod">직접 입력 (예: 0교시, 야자1)</label>
+            <input type="text" id="modalCustomPeriod" placeholder="교시 또는 시간 직접 입력" />
           </div>
-
-          <!-- 과목 + 교실 입력 -->
-          <div class="form-row">
-            <div class="form-group">
-              <label for="inputSubject">과목</label>
-              <!-- 선택 목록은 script.js에서 가나다순으로 채워짐 -->
-              <select id="inputSubject" onchange="handleSubjectChange()" required></select>
-            </div>
-            <div class="form-group">
-              <label for="inputClassroom">교실 (선택)</label>
-              <input type="text" id="inputClassroom" placeholder="예: 1-1반, 과학실" />
-            </div>
-          </div>
-
-          <!-- 색상 선택 -->
-          <div class="form-group">
-            <label>색상 선택</label>
-            <div id="colorPicker" class="color-picker">
-              <!-- 15개 색상 버튼은 script.js에서 생성 -->
-            </div>
-            <!-- 선택된 색상을 담는 hidden input -->
-            <input type="hidden" id="selectedColor" />
-          </div>
-
-          <!-- 폼 버튼 -->
-          <div class="form-buttons">
-            <button type="submit" class="btn btn-primary" id="submitBtn">+ 추가하기</button>
-            <button type="button" class="btn btn-ghost" id="cancelEditBtn"
-              onclick="cancelEdit()" style="display:none;">취소</button>
-          </div>
-
-        </form>
-      </section>
-
-      <!-- 과목 관리 섹션 -->
-      <section class="card subjects-card">
-        <div class="card-header">
-          <h2 class="card-title">📚 과목 목록</h2>
         </div>
-        <p class="subjects-hint">✕ 버튼으로 과목을 시간표에서 일시적으로 숨길 수 있어요</p>
 
-        <!-- 과목 칩 목록 (script.js에서 채워짐) -->
-        <div id="subjectList" class="subject-list"></div>
-
-        <!-- 새 과목 추가 입력 -->
-        <div class="add-subject-row">
-          <input type="text" id="newSubjectInput"
-            placeholder="새 과목명 입력 후 추가"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();addSubject();}" />
-          <button class="btn btn-small btn-primary" onclick="addSubject()">+ 추가</button>
+        <!-- 과목 선택 -->
+        <div class="form-group">
+          <label for="modalSubject">과목</label>
+          <select id="modalSubject" onchange="handleModalSubjectChange()"></select>
         </div>
-      </section>
 
-    </div><!-- /.edit-grid -->
+        <!-- 교실 입력 -->
+        <div class="form-group">
+          <label for="modalClassroom">교실 (선택)</label>
+          <input type="text" id="modalClassroom" placeholder="예: 1-1반, 과학실" />
+        </div>
 
-  </main><!-- /.container -->
+        <!-- 색상 선택 -->
+        <div class="form-group">
+          <label>색상 선택</label>
+          <div id="modalColorPicker" class="color-picker"></div>
+          <input type="hidden" id="modalColor" />
+        </div>
 
+        <!-- 버튼 영역 -->
+        <div class="form-buttons">
+          <button class="btn btn-primary" id="modalSubmitBtn" onclick="submitAddEditModal()">추가하기</button>
+          <button class="btn btn-danger" id="modalDeleteBtn"
+                  onclick="deleteFromModal()" style="display:none;">🗑️ 삭제하기</button>
+          <button class="btn btn-ghost" onclick="closeAddEditModal()">취소</button>
+        </div>
 
-  <!-- ===== 불러오기 모달 ===== -->
-  <div id="loadModal" class="modal-overlay" style="display:none;"
-    onclick="closeLoadModalOutside(event)" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 class="modal-title" id="modalTitle">📂 저장된 시간표 불러오기</h3>
-        <button class="modal-close" onclick="closeLoadModal()" aria-label="닫기">✕</button>
-      </div>
-      <div class="modal-body">
-        <!-- 스냅샷 목록 (script.js에서 채워짐) -->
-        <div id="snapshotList"></div>
       </div>
     </div>
   </div>
 
 
-  <!-- ===== 수업 셀 클릭 팝업 (수정 / 삭제) ===== -->
-  <!-- 팝업 배경 오버레이 -->
-  <div id="popupOverlay" class="popup-overlay" style="display:none;" onclick="closeItemPopup()"></div>
-  <!-- 팝업 본체 -->
-  <div id="itemPopup" class="item-popup" style="display:none;" role="dialog" aria-modal="true">
-    <div class="item-popup-inner">
-      <p id="popupSubjectName" class="popup-subject"></p>
-      <p id="popupInfo" class="popup-info"></p>
-      <div class="popup-buttons">
-        <button class="btn btn-small btn-secondary" onclick="editItemFromPopup()">✏️ 수정</button>
-        <button class="btn btn-small btn-danger" onclick="deleteItemFromPopup()">🗑️ 삭제</button>
-        <button class="btn btn-small btn-ghost" onclick="closeItemPopup()">닫기</button>
+  <!-- ===== 불러오기 모달 ===== -->
+  <div id="loadModal" class="modal-overlay" style="display:none;"
+       onclick="closeLoadModalOutside(event)" role="dialog" aria-modal="true">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">📂 저장된 시간표 불러오기</h3>
+        <button class="modal-close" onclick="closeLoadModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="snapshotList"></div>
       </div>
     </div>
   </div>
