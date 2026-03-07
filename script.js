@@ -8,6 +8,10 @@
 
 const DAYS = ['월', '화', '수', '목', '금'];
 
+// 오늘 요일 (주말이면 null)
+const _TODAY_MAP = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금' };
+const todayDay = _TODAY_MAP[new Date().getDay()] || null;
+
 const DEFAULT_PERIODS = ['1교시', '2교시', '3교시', '4교시', '5교시', '6교시', '7교시'];
 
 const PASTEL_COLORS = [
@@ -60,11 +64,16 @@ let modalFixedDay   = '';
 let modalFixedPeriod = '';
 let modalEditItemId = null;
 
-// 모바일 탭에서 현재 선택된 요일
-let activeDayTab = '월';
+// 모바일 탭에서 현재 선택된 요일 (오늘이 평일이면 오늘로 초기화)
+let activeDayTab = todayDay || '월';
 
 // 모바일 뷰 모드: 'full' (전체 표) | 'day' (요일별)
 let activeViewMode = 'full';
+
+// Firebase 실시간 구독 상태
+let firebaseEventSource  = null;
+let isFirstFirebaseSync  = true;
+let pendingSaves         = 0;   // 내가 저장 중인 횟수 (SSE 자기 자신 감지용)
 
 const FIREBASE_URL = 'https://highschoolschedule-917dd-default-rtdb.asia-southeast1.firebasedatabase.app';
 
@@ -81,8 +90,15 @@ function init() {
   renderTimetable();
   renderSubjectList();
 
-  // Firebase에서 자동 동기화 (비동기)
-  syncFromFirebase();
+  // 오늘 요일 탭 강조 (정적 HTML의 active 클래스 업데이트)
+  if (todayDay) {
+    document.querySelectorAll('.day-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.day === todayDay);
+    });
+  }
+
+  initTheme();
+  subscribeToFirebase();
 }
 
 function initDefaultSubjects() {
@@ -133,6 +149,8 @@ async function syncFromFirebase() {
 
 /** Firebase에 현재 데이터 저장 */
 async function pushToFirebase() {
+  pendingSaves++; // SSE로 돌아올 자기 자신의 이벤트를 무시하기 위해 카운트
+
   const payload = {
     _version: 1,
     _app: '문서율 시간표',
@@ -147,7 +165,53 @@ async function pushToFirebase() {
     body: JSON.stringify(payload),
   });
 
+  if (!res.ok) pendingSaves--; // 저장 실패 시 카운트 원복
   return res.ok;
+}
+
+/** Firebase 실시간 구독 (SSE) */
+function subscribeToFirebase() {
+  if (firebaseEventSource) { firebaseEventSource.close(); firebaseEventSource = null; }
+
+  try {
+    firebaseEventSource = new EventSource(`${FIREBASE_URL}/timetable.json`);
+
+    // 첫 연결 및 데이터 변경 시 호출되는 이벤트
+    firebaseEventSource.addEventListener('put', (e) => {
+      try {
+        const { path, data } = JSON.parse(e.data);
+        if (path !== '/' || !data) return;
+        if (data._app !== '문서율 시간표') return;
+
+        subjects       = data.subjects       || [];
+        timetableItems = data.timetableItems || [];
+        saveToLocalStorage();
+        renderTimetable();
+        renderSubjectList();
+
+        if (isFirstFirebaseSync) {
+          isFirstFirebaseSync = false;
+          showToast('🔄 Firebase에서 최신 시간표를 불러왔어요!', 'success');
+        } else if (pendingSaves > 0) {
+          pendingSaves--; // 내가 저장한 것 — toast 표시 안 함 (saveBtn에서 이미 표시)
+        } else {
+          showToast('🔄 다른 기기에서 시간표가 업데이트됐어요!', 'success');
+        }
+      } catch (err) {
+        console.error('[문서율] Firebase SSE 처리 오류:', err);
+      }
+    });
+
+    firebaseEventSource.onerror = () => {
+      console.warn('[문서율] Firebase SSE 연결 오류. 재연결 시도...');
+      if (firebaseEventSource) { firebaseEventSource.close(); firebaseEventSource = null; }
+      setTimeout(subscribeToFirebase, 10000);
+    };
+
+  } catch (e) {
+    console.error('[문서율] Firebase SSE 초기화 실패. 일회성 동기화로 대체:', e);
+    syncFromFirebase();
+  }
 }
 
 /** 저장하기 버튼 핸들러 */
@@ -230,6 +294,14 @@ function renderDesktopTable() {
   const tbody = document.getElementById('timetableBody');
   tbody.innerHTML = '';
 
+  // 오늘 요일 헤더 강조
+  if (todayDay) {
+    const dayIdx = DAYS.indexOf(todayDay);
+    document.querySelectorAll('#timetableTable .day-header').forEach((th, i) => {
+      th.classList.toggle('today-col-header', i === dayIdx);
+    });
+  }
+
   getAllPeriods().forEach(period => {
     const tr = document.createElement('tr');
 
@@ -242,7 +314,7 @@ function renderDesktopTable() {
     // 요일별 셀
     DAYS.forEach(day => {
       const td = document.createElement('td');
-      td.className = 'timetable-cell';
+      td.className = 'timetable-cell' + (day === todayDay ? ' today-timetable-cell' : '');
 
       const item = timetableItems.find(i => i.day === day && i.period === period);
 
@@ -357,7 +429,7 @@ function renderMobileFullView() {
   headerRow.appendChild(thPeriod);
   DAYS.forEach(day => {
     const th = document.createElement('th');
-    th.className = 'mft-day-header';
+    th.className = 'mft-day-header' + (day === todayDay ? ' mft-today-header' : '');
     th.textContent = day;
     headerRow.appendChild(th);
   });
@@ -388,7 +460,7 @@ function renderMobileFullView() {
     // 요일별 셀
     DAYS.forEach(day => {
       const td = document.createElement('td');
-      td.className = 'mft-cell';
+      td.className = 'mft-cell' + (day === todayDay ? ' mft-today-cell' : '');
 
       const item = timetableItems.find(i => i.day === day && i.period === period);
       if (item) {
@@ -1102,9 +1174,35 @@ function showToast(message, type = 'success') {
 }
 
 
+/* ─── 테마 (다크/라이트 모드) ─── */
+
+function initTheme() {
+  const saved = localStorage.getItem('theme') || 'light';
+  applyTheme(saved);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  localStorage.setItem('theme', next);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('themeToggleBtn');
+  if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+
 /* ─── 이벤트 등록 ─── */
 
 document.addEventListener('DOMContentLoaded', init);
+
+// 페이지 종료 시 SSE 연결 해제
+window.addEventListener('beforeunload', () => {
+  if (firebaseEventSource) firebaseEventSource.close();
+});
 
 // ESC 키로 열린 모달 닫기
 document.addEventListener('keydown', e => {

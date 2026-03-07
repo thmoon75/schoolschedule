@@ -16,14 +16,17 @@
         <h1 class="site-title">&#127800; 문서율 시간표</h1>
         <p class="site-subtitle">나만의 시간표를 예쁘게 꾸며봐요 ✨</p>
       </div>
-      <div class="header-actions no-print">
-        <button class="btn btn-primary" id="saveBtn" onclick="onSaveButtonClick()">💾 저장하기</button>
-        <button class="btn btn-secondary" onclick="openLoadModal()">📂 불러오기</button>
-        <button class="btn btn-outline" onclick="printTimetable()">🖨️ 출력하기</button>
-        <button class="btn btn-export" onclick="exportTimetable()" title="시간표를 파일로 내보내기">📤 내보내기</button>
-        <button class="btn btn-export" onclick="importTimetable()" title="파일에서 시간표 가져오기">📥 가져오기</button>
-        <!-- 가져오기용 숨김 input -->
-        <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="handleImportFile(event)" />
+      <div class="header-controls no-print">
+        <button class="btn-theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="다크/라이트 모드 전환">🌙</button>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="saveBtn" onclick="onSaveButtonClick()">💾 저장하기</button>
+          <button class="btn btn-secondary" onclick="openLoadModal()">📂 불러오기</button>
+          <button class="btn btn-outline" onclick="printTimetable()">🖨️ 출력하기</button>
+          <button class="btn btn-export" onclick="exportTimetable()" title="시간표를 파일로 내보내기">📤 내보내기</button>
+          <button class="btn btn-export" onclick="importTimetable()" title="파일에서 시간표 가져오기">📥 가져오기</button>
+          <!-- 가져오기용 숨김 input -->
+          <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="handleImportFile(event)" />
+        </div>
       </div>
     </div>
   </header>
