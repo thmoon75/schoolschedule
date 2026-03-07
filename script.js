@@ -63,10 +63,14 @@ let modalEditItemId = null;
 // 모바일 탭에서 현재 선택된 요일
 let activeDayTab = '월';
 
+// Firebase 동기화 설정
+let fbConfig = { url: '', secret: '' };
+
 
 /* ─── 초기화 ─── */
 
 function init() {
+  loadGitHubConfig();
   loadFromLocalStorage();
 
   if (subjects.length === 0) {
@@ -75,6 +79,9 @@ function init() {
 
   renderTimetable();
   renderSubjectList();
+
+  // GitHub 설정이 있으면 자동 동기화 (비동기)
+  syncFromGitHub();
 }
 
 function initDefaultSubjects() {
@@ -87,6 +94,209 @@ function initDefaultSubjects() {
     });
   });
   saveToLocalStorage();
+}
+
+
+/* ─── Firebase 설정 ─── */
+
+function loadGitHubConfig() {
+  try {
+    const raw = localStorage.getItem('fbConfig');
+    if (raw) fbConfig = { ...fbConfig, ...JSON.parse(raw) };
+  } catch (e) {
+    console.error('[문서율] Firebase 설정 불러오기 오류:', e);
+  }
+}
+
+function saveFbConfigToStorage() {
+  localStorage.setItem('fbConfig', JSON.stringify(fbConfig));
+}
+
+function isFbConfigured() {
+  return !!fbConfig.url;
+}
+
+function isEditor() {
+  return isFbConfigured() && !!fbConfig.secret;
+}
+
+/** Firebase에서 최신 데이터 가져오기 (페이지 로드 시 자동 호출) */
+async function syncFromGitHub() {
+  if (!isFbConfigured()) return;
+
+  try {
+    const res = await fetch(`${fbConfig.url}/timetable.json`);
+
+    if (!res.ok) {
+      showToast(`Firebase 동기화 실패 (${res.status}) 😢`, 'error');
+      return;
+    }
+
+    const data = await res.json();
+
+    // null이면 아직 저장된 데이터 없음
+    if (!data) return;
+
+    if (data._app !== '문서율 시간표') {
+      showToast('Firebase의 데이터 형식이 올바르지 않아요 😢', 'error');
+      return;
+    }
+
+    subjects       = data.subjects       || [];
+    timetableItems = data.timetableItems || [];
+    saveToLocalStorage();
+    renderTimetable();
+    renderSubjectList();
+    showToast('🔄 Firebase에서 최신 시간표를 불러왔어요!', 'success');
+
+  } catch (e) {
+    console.error('[문서율] Firebase 동기화 오류:', e);
+    showToast('Firebase 동기화 중 오류가 발생했어요 😢', 'error');
+  }
+}
+
+/** Firebase에 현재 데이터 저장 */
+async function pushToGitHub() {
+  const payload = {
+    _version: 1,
+    _app: '문서율 시간표',
+    updatedAt: new Date().toISOString(),
+    subjects,
+    timetableItems,
+  };
+
+  const url = `${fbConfig.url}/timetable.json${fbConfig.secret ? `?auth=${fbConfig.secret}` : ''}`;
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  return res.ok;
+}
+
+/** 저장하기 버튼 핸들러 */
+async function onSaveButtonClick() {
+  if (!isFbConfigured()) {
+    // Firebase 미설정: 로컬 스냅샷 저장
+    saveSnapshot();
+    return;
+  }
+
+  if (!isEditor()) {
+    showToast('🔒 열람자 모드예요. ⚙️ 설정에서 시크릿을 입력하면 수정 가능해요', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('saveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 저장 중...'; }
+
+  try {
+    const ok = await pushToGitHub();
+    if (ok) {
+      showToast('✅ Firebase에 저장했어요! 다른 기기에서 새로고침하면 반영돼요 🎉', 'success');
+    } else {
+      showToast('❌ Firebase 저장 실패. ⚙️ 설정을 확인해주세요', 'error');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 저장하기'; }
+  }
+}
+
+/** Firebase 설정 모달 열기 */
+function openSettingsModal() {
+  document.getElementById('fbUrl').value    = fbConfig.url    || '';
+  document.getElementById('fbSecret').value = fbConfig.secret || '';
+
+  const statusEl = document.getElementById('settingsStatus');
+  statusEl.style.display = 'none';
+
+  const label = document.getElementById('settingsModeLabel');
+  if (!isFbConfigured())  label.textContent = '미설정';
+  else if (isEditor())    label.textContent = '✏️ 수정자 모드';
+  else                    label.textContent = '👁️ 열람자 모드';
+
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+
+function closeSettingsModal() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+function closeSettingsModalOutside(e) {
+  if (e.target === document.getElementById('settingsModal')) closeSettingsModal();
+}
+
+/** Firebase 설정 저장 */
+function saveGitHubSettings() {
+  fbConfig.url    = document.getElementById('fbUrl').value.trim().replace(/\/$/, '');
+  fbConfig.secret = document.getElementById('fbSecret').value.trim();
+  saveFbConfigToStorage();
+  closeSettingsModal();
+  showToast('⚙️ Firebase 설정이 저장됐어요!', 'success');
+}
+
+/** Firebase 연결 테스트 */
+async function testGitHubConnection() {
+  const url    = document.getElementById('fbUrl').value.trim().replace(/\/$/, '');
+  const secret = document.getElementById('fbSecret').value.trim();
+
+  if (!url) {
+    setSettingsStatus('Firebase Database URL을 입력해주세요 📝', 'error');
+    return;
+  }
+
+  setSettingsStatus('🔄 연결 테스트 중...', 'info');
+
+  try {
+    // 읽기 테스트
+    const readRes = await fetch(`${url}/timetable.json`);
+
+    if (readRes.status === 401 || readRes.status === 403) {
+      setSettingsStatus('❌ 읽기 권한이 없어요. Firebase 보안 규칙을 확인해주세요', 'error');
+      return;
+    }
+    if (!readRes.ok) {
+      setSettingsStatus(`❌ 연결 실패 (${readRes.status}). URL을 확인해주세요`, 'error');
+      return;
+    }
+
+    // 쓰기 테스트 (시크릿 있을 때만)
+    if (secret) {
+      const testData = { _test: true };
+      const writeRes = await fetch(`${url}/_test.json?auth=${secret}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(testData),
+      });
+
+      if (writeRes.status === 401 || writeRes.status === 403) {
+        setSettingsStatus('⚠️ 읽기는 성공, 쓰기 실패 — 시크릿이 올바르지 않아요', 'warning');
+        return;
+      }
+      if (!writeRes.ok) {
+        setSettingsStatus(`⚠️ 읽기는 성공, 쓰기 실패 (${writeRes.status})`, 'warning');
+        return;
+      }
+
+      // 테스트 데이터 삭제
+      fetch(`${url}/_test.json?auth=${secret}`, { method: 'DELETE' });
+      setSettingsStatus('✅ 연결 성공! 수정자 권한으로 연결됨', 'success');
+    } else {
+      setSettingsStatus('✅ 연결 성공! 열람자 모드 (시크릿 입력 시 수정 가능)', 'success');
+    }
+
+  } catch (e) {
+    setSettingsStatus('❌ 네트워크 오류. 인터넷 연결을 확인해주세요', 'error');
+  }
+}
+
+function setSettingsStatus(message, type) {
+  const el = document.getElementById('settingsStatus');
+  el.textContent = message;
+  el.className = `settings-status settings-status-${type}`;
+  el.style.display = 'block';
 }
 
 
@@ -756,6 +966,93 @@ function deleteSnapshot(id) {
 function printTimetable() { window.print(); }
 
 
+/* ─── 내보내기 / 가져오기 ─── */
+
+/**
+ * 현재 시간표 데이터를 JSON 파일로 다운로드합니다.
+ * 다른 기기에서 '가져오기'로 불러올 수 있습니다.
+ */
+function exportTimetable() {
+  const data = {
+    _version:   1,
+    _app:       '문서율 시간표',
+    exportedAt: new Date().toISOString(),
+    subjects:       subjects,
+    timetableItems: timetableItems,
+    snapshots:      snapshots,
+  };
+
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href     = url;
+  a.download = `문서율시간표_${formatDate(new Date()).replace(/[: ]/g, '-')}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showToast('📤 시간표 파일이 다운로드됐어요! 카카오톡 등으로 공유해봐요', 'success');
+}
+
+/**
+ * 파일 선택 다이얼로그를 열어 JSON 파일을 불러옵니다.
+ */
+function importTimetable() {
+  document.getElementById('importFileInput').click();
+}
+
+/**
+ * 선택된 JSON 파일을 읽어 시간표 데이터를 가져옵니다.
+ * @param {Event} event
+ */
+function handleImportFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // 다음 번 선택을 위해 input 초기화
+  event.target.value = '';
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+
+      // 파일 유효성 검사
+      if (!data._app || data._app !== '문서율 시간표') {
+        showToast('문서율 시간표에서 내보낸 파일이 아니에요 😢', 'error');
+        return;
+      }
+      if (!Array.isArray(data.subjects) || !Array.isArray(data.timetableItems)) {
+        showToast('파일 형식이 올바르지 않아요 😢', 'error');
+        return;
+      }
+
+      const itemCount = data.timetableItems.length;
+      if (!confirm(`📥 가져오기를 하면 현재 시간표가 파일의 내용으로 교체돼요.\n(수업 ${itemCount}개)\n\n계속할까요?`)) return;
+
+      // 데이터 교체
+      subjects       = data.subjects;
+      timetableItems = data.timetableItems;
+      if (Array.isArray(data.snapshots)) snapshots = data.snapshots;
+
+      saveToLocalStorage();
+      renderTimetable();
+      renderSubjectList();
+      showToast(`📥 시간표를 성공적으로 가져왔어요! (수업 ${itemCount}개)`, 'success');
+
+    } catch (err) {
+      console.error('[문서율] 가져오기 오류:', err);
+      showToast('파일을 읽는 중 오류가 발생했어요 😢', 'error');
+    }
+  };
+
+  reader.readAsText(file, 'UTF-8');
+}
+
+
 /* ─── 유틸리티 ─── */
 
 function generateId() {
@@ -794,6 +1091,7 @@ document.addEventListener('DOMContentLoaded', init);
 // ESC 키로 열린 모달 닫기
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (document.getElementById('addEditModal').style.display === 'flex') closeAddEditModal();
-  if (document.getElementById('loadModal').style.display   === 'flex') closeLoadModal();
+  if (document.getElementById('addEditModal').style.display  === 'flex') closeAddEditModal();
+  if (document.getElementById('loadModal').style.display     === 'flex') closeLoadModal();
+  if (document.getElementById('settingsModal').style.display === 'flex') closeSettingsModal();
 });

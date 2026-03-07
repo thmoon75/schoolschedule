@@ -17,9 +17,14 @@
         <p class="site-subtitle">나만의 시간표를 예쁘게 꾸며봐요 ✨</p>
       </div>
       <div class="header-actions no-print">
-        <button class="btn btn-primary" onclick="saveSnapshot()">💾 저장하기</button>
+        <button class="btn btn-primary" id="saveBtn" onclick="onSaveButtonClick()">💾 저장하기</button>
         <button class="btn btn-secondary" onclick="openLoadModal()">📂 불러오기</button>
         <button class="btn btn-outline" onclick="printTimetable()">🖨️ 출력하기</button>
+        <button class="btn btn-export" onclick="exportTimetable()" title="시간표를 파일로 내보내기">📤 내보내기</button>
+        <button class="btn btn-export" onclick="importTimetable()" title="파일에서 시간표 가져오기">📥 가져오기</button>
+        <button class="btn btn-settings" onclick="openSettingsModal()" title="GitHub 동기화 설정">⚙️</button>
+        <!-- 가져오기용 숨김 input -->
+        <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="handleImportFile(event)" />
       </div>
     </div>
   </header>
@@ -175,6 +180,43 @@
           <button class="btn btn-ghost" onclick="closeAddEditModal()">취소</button>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ===== Firebase 설정 모달 ===== -->
+  <div id="settingsModal" class="modal-overlay" style="display:none;"
+       onclick="closeSettingsModalOutside(event)" role="dialog" aria-modal="true">
+    <div class="modal modal-form">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">⚙️ Firebase 동기화 설정</h3>
+          <p class="modal-context-text" id="settingsModeLabel"></p>
+        </div>
+        <button class="modal-close" onclick="closeSettingsModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="settings-desc">
+          Firebase에 시간표를 저장하면 여러 기기에서 자동으로 공유할 수 있어요.<br/>
+          시크릿을 입력한 기기는 <strong>수정자</strong>, 입력하지 않은 기기는 <strong>열람자</strong>가 돼요.
+        </p>
+        <div class="form-group">
+          <label for="fbUrl">Firebase Database URL</label>
+          <input type="text" id="fbUrl"
+            placeholder="https://your-project-default-rtdb.firebaseio.com"
+            autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label for="fbSecret">데이터베이스 시크릿 <span style="color:var(--text-muted);font-weight:400;">(수정자만 입력)</span></label>
+          <input type="password" id="fbSecret" placeholder="열람자는 비워두세요" autocomplete="off" />
+        </div>
+        <div id="settingsStatus" class="settings-status" style="display:none;"></div>
+        <div class="form-buttons">
+          <button class="btn btn-primary" onclick="saveGitHubSettings()">💾 설정 저장</button>
+          <button class="btn btn-outline" onclick="testGitHubConnection()">🔗 연결 테스트</button>
+          <button class="btn btn-ghost" onclick="closeSettingsModal()">취소</button>
+        </div>
       </div>
     </div>
   </div>
