@@ -63,14 +63,12 @@ let modalEditItemId = null;
 // 모바일 탭에서 현재 선택된 요일
 let activeDayTab = '월';
 
-// Firebase 동기화 설정
-let fbConfig = { url: '', secret: '' };
+const FIREBASE_URL = 'https://highschoolschedule-917dd-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 
 /* ─── 초기화 ─── */
 
 function init() {
-  loadGitHubConfig();
   loadFromLocalStorage();
 
   if (subjects.length === 0) {
@@ -80,7 +78,7 @@ function init() {
   renderTimetable();
   renderSubjectList();
 
-  // GitHub 설정이 있으면 자동 동기화 (비동기)
+  // Firebase에서 자동 동기화 (비동기)
   syncFromGitHub();
 }
 
@@ -97,35 +95,12 @@ function initDefaultSubjects() {
 }
 
 
-/* ─── Firebase 설정 ─── */
-
-function loadGitHubConfig() {
-  try {
-    const raw = localStorage.getItem('fbConfig');
-    if (raw) fbConfig = { ...fbConfig, ...JSON.parse(raw) };
-  } catch (e) {
-    console.error('[문서율] Firebase 설정 불러오기 오류:', e);
-  }
-}
-
-function saveFbConfigToStorage() {
-  localStorage.setItem('fbConfig', JSON.stringify(fbConfig));
-}
-
-function isFbConfigured() {
-  return !!fbConfig.url;
-}
-
-function isEditor() {
-  return isFbConfigured() && !!fbConfig.secret;
-}
+/* ─── Firebase 동기화 ─── */
 
 /** Firebase에서 최신 데이터 가져오기 (페이지 로드 시 자동 호출) */
 async function syncFromGitHub() {
-  if (!isFbConfigured()) return;
-
   try {
-    const res = await fetch(`${fbConfig.url}/timetable.json`);
+    const res = await fetch(`${FIREBASE_URL}/timetable.json`);
 
     if (!res.ok) {
       showToast(`Firebase 동기화 실패 (${res.status}) 😢`, 'error');
@@ -133,9 +108,7 @@ async function syncFromGitHub() {
     }
 
     const data = await res.json();
-
-    // null이면 아직 저장된 데이터 없음
-    if (!data) return;
+    if (!data) return; // 아직 저장된 데이터 없음
 
     if (data._app !== '문서율 시간표') {
       showToast('Firebase의 데이터 형식이 올바르지 않아요 😢', 'error');
@@ -165,9 +138,7 @@ async function pushToGitHub() {
     timetableItems,
   };
 
-  const url = `${fbConfig.url}/timetable.json${fbConfig.secret ? `?auth=${fbConfig.secret}` : ''}`;
-
-  const res = await fetch(url, {
+  const res = await fetch(`${FIREBASE_URL}/timetable.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -178,17 +149,6 @@ async function pushToGitHub() {
 
 /** 저장하기 버튼 핸들러 */
 async function onSaveButtonClick() {
-  if (!isFbConfigured()) {
-    // Firebase 미설정: 로컬 스냅샷 저장
-    saveSnapshot();
-    return;
-  }
-
-  if (!isEditor()) {
-    showToast('🔒 열람자 모드예요. ⚙️ 설정에서 시크릿을 입력하면 수정 가능해요', 'error');
-    return;
-  }
-
   const btn = document.getElementById('saveBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 저장 중...'; }
 
@@ -197,106 +157,11 @@ async function onSaveButtonClick() {
     if (ok) {
       showToast('✅ Firebase에 저장했어요! 다른 기기에서 새로고침하면 반영돼요 🎉', 'success');
     } else {
-      showToast('❌ Firebase 저장 실패. ⚙️ 설정을 확인해주세요', 'error');
+      showToast('❌ Firebase 저장 실패. 잠시 후 다시 시도해주세요', 'error');
     }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '💾 저장하기'; }
   }
-}
-
-/** Firebase 설정 모달 열기 */
-function openSettingsModal() {
-  document.getElementById('fbUrl').value    = fbConfig.url    || '';
-  document.getElementById('fbSecret').value = fbConfig.secret || '';
-
-  const statusEl = document.getElementById('settingsStatus');
-  statusEl.style.display = 'none';
-
-  const label = document.getElementById('settingsModeLabel');
-  if (!isFbConfigured())  label.textContent = '미설정';
-  else if (isEditor())    label.textContent = '✏️ 수정자 모드';
-  else                    label.textContent = '👁️ 열람자 모드';
-
-  document.getElementById('settingsModal').style.display = 'flex';
-}
-
-function closeSettingsModal() {
-  document.getElementById('settingsModal').style.display = 'none';
-}
-
-function closeSettingsModalOutside(e) {
-  if (e.target === document.getElementById('settingsModal')) closeSettingsModal();
-}
-
-/** Firebase 설정 저장 */
-function saveGitHubSettings() {
-  fbConfig.url    = document.getElementById('fbUrl').value.trim().replace(/\/$/, '');
-  fbConfig.secret = document.getElementById('fbSecret').value.trim();
-  saveFbConfigToStorage();
-  closeSettingsModal();
-  showToast('⚙️ Firebase 설정이 저장됐어요!', 'success');
-}
-
-/** Firebase 연결 테스트 */
-async function testGitHubConnection() {
-  const url    = document.getElementById('fbUrl').value.trim().replace(/\/$/, '');
-  const secret = document.getElementById('fbSecret').value.trim();
-
-  if (!url) {
-    setSettingsStatus('Firebase Database URL을 입력해주세요 📝', 'error');
-    return;
-  }
-
-  setSettingsStatus('🔄 연결 테스트 중...', 'info');
-
-  try {
-    // 읽기 테스트
-    const readRes = await fetch(`${url}/timetable.json`);
-
-    if (readRes.status === 401 || readRes.status === 403) {
-      setSettingsStatus('❌ 읽기 권한이 없어요. Firebase 보안 규칙을 확인해주세요', 'error');
-      return;
-    }
-    if (!readRes.ok) {
-      setSettingsStatus(`❌ 연결 실패 (${readRes.status}). URL을 확인해주세요`, 'error');
-      return;
-    }
-
-    // 쓰기 테스트 (시크릿 있을 때만)
-    if (secret) {
-      const testData = { _test: true };
-      const writeRes = await fetch(`${url}/_test.json?auth=${secret}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(testData),
-      });
-
-      if (writeRes.status === 401 || writeRes.status === 403) {
-        setSettingsStatus('⚠️ 읽기는 성공, 쓰기 실패 — 시크릿이 올바르지 않아요', 'warning');
-        return;
-      }
-      if (!writeRes.ok) {
-        setSettingsStatus(`⚠️ 읽기는 성공, 쓰기 실패 (${writeRes.status})`, 'warning');
-        return;
-      }
-
-      // 테스트 데이터 삭제
-      fetch(`${url}/_test.json?auth=${secret}`, { method: 'DELETE' });
-      setSettingsStatus('✅ 연결 성공! 수정자 권한으로 연결됨', 'success');
-    } else {
-      setSettingsStatus('✅ 연결 성공! 열람자 모드 (시크릿 입력 시 수정 가능)', 'success');
-    }
-
-  } catch (e) {
-    setSettingsStatus('❌ 네트워크 오류. 인터넷 연결을 확인해주세요', 'error');
-  }
-}
-
-function setSettingsStatus(message, type) {
-  const el = document.getElementById('settingsStatus');
-  el.textContent = message;
-  el.className = `settings-status settings-status-${type}`;
-  el.style.display = 'block';
 }
 
 
@@ -1093,5 +958,4 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (document.getElementById('addEditModal').style.display  === 'flex') closeAddEditModal();
   if (document.getElementById('loadModal').style.display     === 'flex') closeLoadModal();
-  if (document.getElementById('settingsModal').style.display === 'flex') closeSettingsModal();
 });

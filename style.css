@@ -90,8 +90,6 @@ body {
 .btn-danger:hover { background: #d05555; }
 .btn-export { background: #e8f4e8; color: #3a7a3a; border: 1.5px solid #b8ddb8; }
 .btn-export:hover { background: #d0ebd0; }
-.btn-settings { background: #f0f0f8; color: #6060a0; border: 1.5px solid #d8d8f0; padding: 10px 13px; font-size: 16px; }
-.btn-settings:hover { background: #e4e4f4; }
 .btn-small { padding: 6px 12px; font-size: 12px; border-radius: var(--radius-xs); }
 
 
@@ -678,32 +676,6 @@ body {
     to   { opacity: 1; transform: translateY(0); }
   }
 }
-
-
-/* ─── GitHub 설정 모달 ─── */
-.settings-desc {
-  font-size: 13px;
-  color: var(--text-light);
-  line-height: 1.7;
-  margin-bottom: 18px;
-  padding: 12px 14px;
-  background: var(--primary-pale);
-  border-radius: var(--radius-xs);
-  border-left: 3px solid var(--primary-light);
-}
-
-.settings-status {
-  padding: 10px 14px;
-  border-radius: var(--radius-xs);
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 4px;
-  line-height: 1.5;
-}
-.settings-status-success { background: #e8f8ee; color: #2e7d4f; border: 1px solid #b8ddc8; }
-.settings-status-error   { background: #fef0f0; color: #c0392b; border: 1px solid #f5c0bc; }
-.settings-status-warning { background: #fff8e8; color: #b07020; border: 1px solid #f0d898; }
-.settings-status-info    { background: #eef4ff; color: #2c5f9e; border: 1px solid #b8d0f0; }
 
 
 /* ─── 인쇄 스타일 ─── */
