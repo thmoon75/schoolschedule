@@ -185,6 +185,12 @@
           <input type="text" id="modalClassroom" placeholder="예: 1-1반, 과학실" />
         </div>
 
+        <!-- 메모 입력 -->
+        <div class="form-group">
+          <label for="modalMemo">메모 (선택)</label>
+          <textarea id="modalMemo" placeholder="수행평가, 준비물, 과제 등 메모를 입력해보세요" rows="2"></textarea>
+        </div>
+
         <!-- 색상 선택 -->
         <div class="form-group">
           <label>색상 선택</label>
@@ -219,6 +225,27 @@
     </div>
   </div>
 
+
+  <!-- ===== 메모 팝업 (전체 표에서 과목 터치 시) ===== -->
+  <div id="memoPopup" class="memo-popup-overlay" style="display:none;"
+       onclick="closeMemoPopup()" role="dialog" aria-modal="true">
+    <div class="memo-popup" onclick="event.stopPropagation()">
+      <div class="memo-popup-header" id="memoPopupHeader">
+        <div>
+          <span class="memo-popup-subject" id="memoPopupSubject"></span>
+          <span class="memo-popup-classroom" id="memoPopupClassroom"></span>
+        </div>
+        <button class="modal-close" onclick="closeMemoPopup()" aria-label="닫기">✕</button>
+      </div>
+      <div class="memo-popup-body">
+        <p class="memo-popup-text" id="memoPopupText"></p>
+      </div>
+      <div class="memo-popup-footer">
+        <button class="btn btn-primary btn-small" id="memoPopupEditBtn">✏️ 수정하기</button>
+        <button class="btn btn-ghost btn-small" onclick="closeMemoPopup()">닫기</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 모바일 하단 고정 바 (모바일에서만 표시) -->
   <div class="mobile-bottom-bar no-print" id="mobileBottomBar">

@@ -306,6 +306,7 @@ function renderMobileDayView() {
         <div class="mobile-subject-info">
           <span class="mobile-subject-name">${escapeHtml(item.subjectName)}</span>
           ${item.classroom ? `<span class="mobile-classroom">${escapeHtml(item.classroom)}</span>` : ''}
+          ${item.memo ? `<span class="mobile-memo">${escapeHtml(item.memo)}</span>` : ''}
         </div>
         <span class="mobile-edit-icon">✏️</span>
       `;
@@ -406,7 +407,7 @@ function renderMobileFullView() {
           td.appendChild(classroomSpan);
         }
 
-        td.addEventListener('click', () => openEditModal(item.id));
+        td.addEventListener('click', () => openMemoPopup(item.id));
       } else {
         td.classList.add('mft-empty');
         td.textContent = '+';
@@ -422,6 +423,40 @@ function renderMobileFullView() {
 
   table.appendChild(tbody);
   wrap.appendChild(table);
+}
+
+/**
+ * 전체 표에서 수업 셀 터치 시 메모 팝업 표시
+ */
+function openMemoPopup(id) {
+  const item = timetableItems.find(i => i.id === id);
+  if (!item) return;
+
+  const header = document.getElementById('memoPopupHeader');
+  header.style.backgroundColor = item.color;
+
+  document.getElementById('memoPopupSubject').textContent = item.subjectName;
+  document.getElementById('memoPopupClassroom').textContent = item.classroom || '';
+
+  const memoText = document.getElementById('memoPopupText');
+  if (item.memo) {
+    memoText.textContent = item.memo;
+    memoText.style.color = '';
+  } else {
+    memoText.textContent = '메모가 없어요';
+    memoText.style.color = 'var(--text-muted)';
+  }
+
+  document.getElementById('memoPopupEditBtn').onclick = () => {
+    closeMemoPopup();
+    openEditModal(id);
+  };
+
+  document.getElementById('memoPopup').style.display = 'flex';
+}
+
+function closeMemoPopup() {
+  document.getElementById('memoPopup').style.display = 'none';
 }
 
 /**
@@ -483,6 +518,7 @@ function openAddModal(day, period) {
 
   // 폼 초기화
   document.getElementById('modalClassroom').value = '';
+  document.getElementById('modalMemo').value = '';
   populateModalSubjectDropdown();
   renderModalColorPicker();
 
@@ -514,6 +550,7 @@ function openAddModalFull() {
   document.getElementById('modalSubmitBtn').textContent = '추가하기';
 
   document.getElementById('modalClassroom').value = '';
+  document.getElementById('modalMemo').value = '';
   populateModalSubjectDropdown();
   renderModalColorPicker();
   handleModalSubjectChange();
@@ -552,9 +589,10 @@ function openEditModal(id) {
     document.getElementById('modalCustomPeriod').value = item.period;
   }
 
-  // 과목, 교실 세팅
+  // 과목, 교실, 메모 세팅
   populateModalSubjectDropdown(item.subjectName);
   document.getElementById('modalClassroom').value = item.classroom || '';
+  document.getElementById('modalMemo').value = item.memo || '';
 
   // 색상 선택
   renderModalColorPicker();
@@ -631,6 +669,7 @@ function submitAddEditModal() {
 
   const subjectName = document.getElementById('modalSubject').value;
   const classroom   = document.getElementById('modalClassroom').value.trim();
+  const memo        = document.getElementById('modalMemo').value.trim();
   const color       = document.getElementById('modalColor').value;
 
   // 유효성 검사
@@ -659,7 +698,7 @@ function submitAddEditModal() {
     }
     const idx = timetableItems.findIndex(i => i.id === modalEditItemId);
     if (idx !== -1) {
-      timetableItems[idx] = { ...timetableItems[idx], day, period, subjectName, classroom, color };
+      timetableItems[idx] = { ...timetableItems[idx], day, period, subjectName, classroom, memo, color };
     }
     showToast('수업이 수정되었어요! ✏️', 'success');
 
@@ -670,7 +709,7 @@ function submitAddEditModal() {
       if (!confirm(`${day}요일 ${period}에 이미 '${conflict.subjectName}' 수업이 있어요.\n덮어쓸까요?`)) return;
       timetableItems = timetableItems.filter(i => i.id !== conflict.id);
     }
-    timetableItems.push({ id: generateId(), day, period, subjectName, classroom, color });
+    timetableItems.push({ id: generateId(), day, period, subjectName, classroom, memo, color });
     showToast('수업이 추가되었어요! 🎉', 'success');
   }
 
@@ -1070,6 +1109,7 @@ document.addEventListener('DOMContentLoaded', init);
 // ESC 키로 열린 모달 닫기
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  if (document.getElementById('memoPopup').style.display     === 'flex') closeMemoPopup();
   if (document.getElementById('addEditModal').style.display  === 'flex') closeAddEditModal();
   if (document.getElementById('loadModal').style.display     === 'flex') closeLoadModal();
 });
