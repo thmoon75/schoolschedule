@@ -79,7 +79,7 @@ function init() {
   renderSubjectList();
 
   // Firebase에서 자동 동기화 (비동기)
-  syncFromGitHub();
+  syncFromFirebase();
 }
 
 function initDefaultSubjects() {
@@ -98,7 +98,7 @@ function initDefaultSubjects() {
 /* ─── Firebase 동기화 ─── */
 
 /** Firebase에서 최신 데이터 가져오기 (페이지 로드 시 자동 호출) */
-async function syncFromGitHub() {
+async function syncFromFirebase() {
   try {
     const res = await fetch(`${FIREBASE_URL}/timetable.json`);
 
@@ -129,7 +129,7 @@ async function syncFromGitHub() {
 }
 
 /** Firebase에 현재 데이터 저장 */
-async function pushToGitHub() {
+async function pushToFirebase() {
   const payload = {
     _version: 1,
     _app: '문서율 시간표',
@@ -153,7 +153,7 @@ async function onSaveButtonClick() {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 저장 중...'; }
 
   try {
-    const ok = await pushToGitHub();
+    const ok = await pushToFirebase();
     if (ok) {
       showToast('✅ Firebase에 저장했어요! 다른 기기에서 새로고침하면 반영돼요 🎉', 'success');
     } else {
