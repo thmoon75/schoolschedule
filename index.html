@@ -66,22 +66,43 @@
 
       <!-- 모바일: 탭 형식 (데스크탑에서 숨김) -->
       <div class="mobile-view" id="mobileTimetable">
-        <!-- 요일 탭 -->
-        <div class="day-tabs" id="dayTabs">
-          <button class="day-tab active" onclick="selectDayTab('월')" data-day="월">월</button>
-          <button class="day-tab" onclick="selectDayTab('화')" data-day="화">화</button>
-          <button class="day-tab" onclick="selectDayTab('수')" data-day="수">수</button>
-          <button class="day-tab" onclick="selectDayTab('목')" data-day="목">목</button>
-          <button class="day-tab" onclick="selectDayTab('금')" data-day="금">금</button>
+
+        <!-- 뷰 모드 탭: 전체 표 / 요일별 -->
+        <div class="view-mode-tabs" id="viewModeTabs">
+          <button class="view-mode-tab active" onclick="selectViewMode('full')" data-mode="full">📊 전체 표</button>
+          <button class="view-mode-tab" onclick="selectViewMode('day')" data-mode="day">📅 요일별</button>
         </div>
-        <!-- 선택된 요일의 교시 목록 -->
-        <div id="mobileDayContent" class="mobile-day-content"></div>
-        <!-- 다른 교시 추가 버튼 -->
-        <div class="mobile-custom-add no-print">
-          <button class="btn btn-outline btn-small" onclick="openAddModalFull()">
-            ✍️ 다른 교시에 추가하기
-          </button>
+
+        <!-- 전체 표 뷰 (기본) -->
+        <div id="mobileFullView" class="mobile-full-view">
+          <div class="mobile-full-table-wrap" id="mobileFullTableWrap"></div>
+          <div class="mobile-custom-add no-print">
+            <button class="btn btn-outline btn-small" onclick="openAddModalFull()">
+              ✍️ 다른 교시에 추가하기
+            </button>
+          </div>
         </div>
+
+        <!-- 요일별 뷰 -->
+        <div id="mobileDayView" class="mobile-day-view" style="display:none;">
+          <!-- 요일 탭 -->
+          <div class="day-tabs" id="dayTabs">
+            <button class="day-tab active" onclick="selectDayTab('월')" data-day="월">월</button>
+            <button class="day-tab" onclick="selectDayTab('화')" data-day="화">화</button>
+            <button class="day-tab" onclick="selectDayTab('수')" data-day="수">수</button>
+            <button class="day-tab" onclick="selectDayTab('목')" data-day="목">목</button>
+            <button class="day-tab" onclick="selectDayTab('금')" data-day="금">금</button>
+          </div>
+          <!-- 선택된 요일의 교시 목록 -->
+          <div id="mobileDayContent" class="mobile-day-content"></div>
+          <!-- 다른 교시 추가 버튼 -->
+          <div class="mobile-custom-add no-print">
+            <button class="btn btn-outline btn-small" onclick="openAddModalFull()">
+              ✍️ 다른 교시에 추가하기
+            </button>
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -198,6 +219,30 @@
     </div>
   </div>
 
+
+  <!-- 모바일 하단 고정 바 (모바일에서만 표시) -->
+  <div class="mobile-bottom-bar no-print" id="mobileBottomBar">
+    <button class="bottom-bar-btn" onclick="onSaveButtonClick()" id="saveBtnMobile">
+      <span class="bottom-bar-icon">💾</span>
+      <span class="bottom-bar-label">저장</span>
+    </button>
+    <button class="bottom-bar-btn" onclick="openLoadModal()">
+      <span class="bottom-bar-icon">📂</span>
+      <span class="bottom-bar-label">불러오기</span>
+    </button>
+    <button class="bottom-bar-btn" onclick="printTimetable()">
+      <span class="bottom-bar-icon">🖨️</span>
+      <span class="bottom-bar-label">출력</span>
+    </button>
+    <button class="bottom-bar-btn" onclick="exportTimetable()">
+      <span class="bottom-bar-icon">📤</span>
+      <span class="bottom-bar-label">내보내기</span>
+    </button>
+    <button class="bottom-bar-btn" onclick="importTimetable()">
+      <span class="bottom-bar-icon">📥</span>
+      <span class="bottom-bar-label">가져오기</span>
+    </button>
+  </div>
 
   <script src="script.js"></script>
 </body>

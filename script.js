@@ -63,6 +63,9 @@ let modalEditItemId = null;
 // 모바일 탭에서 현재 선택된 요일
 let activeDayTab = '월';
 
+// 모바일 뷰 모드: 'full' (전체 표) | 'day' (요일별)
+let activeViewMode = 'full';
+
 const FIREBASE_URL = 'https://highschoolschedule-917dd-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 
@@ -149,8 +152,10 @@ async function pushToFirebase() {
 
 /** 저장하기 버튼 핸들러 */
 async function onSaveButtonClick() {
-  const btn = document.getElementById('saveBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 저장 중...'; }
+  const btn       = document.getElementById('saveBtn');
+  const btnMobile = document.getElementById('saveBtnMobile');
+  if (btn)       { btn.disabled = true; btn.textContent = '⏳ 저장 중...'; }
+  if (btnMobile) { btnMobile.disabled = true; }
 
   try {
     const ok = await pushToFirebase();
@@ -160,7 +165,8 @@ async function onSaveButtonClick() {
       showToast('❌ Firebase 저장 실패. 잠시 후 다시 시도해주세요', 'error');
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 저장하기'; }
+    if (btn)       { btn.disabled = false; btn.textContent = '💾 저장하기'; }
+    if (btnMobile) { btnMobile.disabled = false; }
   }
 }
 
@@ -207,6 +213,7 @@ function renderTimetable() {
   updateEmptyHint();
   renderDesktopTable();
   renderMobileDayView();
+  if (activeViewMode === 'full') renderMobileFullView();
 }
 
 /** 빈 시간표 안내 문구 업데이트 */
@@ -326,6 +333,113 @@ function getAllPeriods() {
     .filter(p => !DEFAULT_PERIODS.includes(p));
   const uniqueCustom = [...new Set(customPeriods)].sort((a, b) => a.localeCompare(b, 'ko'));
   return [...DEFAULT_PERIODS, ...uniqueCustom];
+}
+
+/**
+ * 모바일 전체 표 뷰: 5일 × N교시 compact 표를 렌더링합니다.
+ */
+function renderMobileFullView() {
+  const wrap = document.getElementById('mobileFullTableWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  const periods = getAllPeriods();
+
+  const table = document.createElement('table');
+  table.className = 'mobile-full-table';
+
+  // thead
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  const thPeriod = document.createElement('th');
+  thPeriod.className = 'mft-period-header';
+  headerRow.appendChild(thPeriod);
+  DAYS.forEach(day => {
+    const th = document.createElement('th');
+    th.className = 'mft-day-header';
+    th.textContent = day;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  // tbody
+  const tbody = document.createElement('tbody');
+  periods.forEach(period => {
+    const tr = document.createElement('tr');
+
+    // 교시 셀
+    const periodTd = document.createElement('td');
+    periodTd.className = 'mft-period-cell';
+    if (period.endsWith('교시')) {
+      const num = document.createTextNode(period.replace('교시', ''));
+      const br = document.createElement('br');
+      const small = document.createElement('small');
+      small.textContent = '교시';
+      periodTd.appendChild(num);
+      periodTd.appendChild(br);
+      periodTd.appendChild(small);
+    } else {
+      periodTd.textContent = period;
+    }
+    tr.appendChild(periodTd);
+
+    // 요일별 셀
+    DAYS.forEach(day => {
+      const td = document.createElement('td');
+      td.className = 'mft-cell';
+
+      const item = timetableItems.find(i => i.day === day && i.period === period);
+      if (item) {
+        td.style.backgroundColor = item.color;
+        td.title = `${item.subjectName}${item.classroom ? ' · ' + item.classroom : ''} — 클릭하여 수정`;
+
+        const subjectSpan = document.createElement('span');
+        subjectSpan.className = 'mft-subject';
+        subjectSpan.textContent = item.subjectName;
+        td.appendChild(subjectSpan);
+
+        if (item.classroom) {
+          const classroomSpan = document.createElement('span');
+          classroomSpan.className = 'mft-classroom';
+          classroomSpan.textContent = item.classroom;
+          td.appendChild(classroomSpan);
+        }
+
+        td.addEventListener('click', () => openEditModal(item.id));
+      } else {
+        td.classList.add('mft-empty');
+        td.textContent = '+';
+        td.title = `${day}요일 ${period} 수업 추가`;
+        td.addEventListener('click', () => openAddModal(day, period));
+      }
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+}
+
+/**
+ * 모바일 뷰 모드 전환 ('full' | 'day')
+ */
+function selectViewMode(mode) {
+  activeViewMode = mode;
+
+  document.querySelectorAll('.view-mode-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+
+  const fullView = document.getElementById('mobileFullView');
+  const dayView  = document.getElementById('mobileDayView');
+  if (fullView) fullView.style.display = mode === 'full' ? 'block' : 'none';
+  if (dayView)  dayView.style.display  = mode === 'day'  ? 'block' : 'none';
+
+  if (mode === 'full') renderMobileFullView();
 }
 
 /**
